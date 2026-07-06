@@ -131,12 +131,10 @@ public fun SBBMapView(
         if (poi.enabled) sbbMap.updatePoiSubcategories(newPoiSubcategories ?: emptyList())
     }
     LaunchedEffect(newCoordinates) {
-        if (poi.enabled) {
-            sbbMap.centerToCoordinates(
-                newCoordinates = newCoordinates,
-                zoomLevel = newZoomLevel,
-            )
-        }
+        sbbMap.centerToCoordinates(
+            newCoordinates = newCoordinates,
+            zoomLevel = newZoomLevel,
+        )
     }
     LaunchedEffect(newZoomLevel) {
         sbbMap.updateZoomLevel(newZoomLevel)

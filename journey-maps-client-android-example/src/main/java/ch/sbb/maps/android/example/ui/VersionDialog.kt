@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2024 Schweizerische Bundesbahnen AG (Swiss Federal Railways)
 
+package ch.sbb.maps.android.example.ui
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text

@@ -58,9 +58,6 @@ internal class SBBMapPoiController(
 
                     it.setFilter(filter)
                     it.setProperties(PropertyFactory.visibility(if (enablePoi) Property.VISIBLE else Property.NONE))
-
-                    Expression.has("icon-opacity")
-                    it.setProperties(PropertyFactory.visibility(Property.VISIBLE))
                 }
             }
         }

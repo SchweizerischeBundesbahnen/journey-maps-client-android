@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2024 Schweizerische Bundesbahnen AG (Swiss Federal Railways)
 
+package ch.sbb.maps.design
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,8 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import ch.sbb.maps.R
-import ch.sbb.maps.design.SBBColors
-import ch.sbb.maps.design.SBBTypography
 
 /**
  * Based on [SBB Mobile Design System](https://digital.sbb.ch/de/design-system/mobile/overview/).
@@ -84,7 +84,7 @@ public fun SBBHeaderSmall(
                     modifier =
                         Modifier
                             .clickable(
-                                onClick = { onNavigationClick ?: navController.navigateUp() },
+                                onClick = { onNavigationClick?.invoke() ?: navController.navigateUp() },
                                 indication = null, // remove ripple effect
                                 interactionSource = remember { MutableInteractionSource() }, // set interaction
                                 role = Role.Button,

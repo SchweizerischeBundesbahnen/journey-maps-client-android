@@ -15,10 +15,6 @@ This android SDK allows you to easily incorporate SBB maps into your Android app
 
 ## Precondition
 
-### Internal Use
-
-As this is an SBB internal package, ensure that your build agent has access to this repository.
-
 ### Technology Stack
 
 The SBB Journey Maps Client is built with [Jetpack Compose](https://developer.android.com/jetpack/compose), ensuring seamless compatibility and a modern UI toolkit that enhances both the design and functionality of your application. For optimal integration and performance, we recommend developing your application using Jetpack Compose.
@@ -44,9 +40,6 @@ dependencies {
     ..
 }
 ```
-
-This will get you latest changes from the `master` branch. Replace this with a more recent
-`release tag` to get a more stable version.
 
 ### Accessing ROKAS styles & datasources
 

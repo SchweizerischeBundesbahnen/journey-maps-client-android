@@ -3,8 +3,6 @@
 
 package ch.sbb.maps.android.example
 
-import SBBHeaderSmall
-import VersionDialog
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -25,6 +23,8 @@ import ch.sbb.maps.android.example.ui.DefaultMapView
 import ch.sbb.maps.android.example.ui.OnBoarding
 import ch.sbb.maps.android.example.ui.geojson.GeoJsonMapView
 import ch.sbb.maps.android.example.ui.poi.PoiMapView
+import ch.sbb.maps.android.example.ui.VersionDialog
+import ch.sbb.maps.design.SBBHeaderSmall
 
 @Composable
 fun SBBMapDemoApp(navController: NavHostController = rememberNavController()) {

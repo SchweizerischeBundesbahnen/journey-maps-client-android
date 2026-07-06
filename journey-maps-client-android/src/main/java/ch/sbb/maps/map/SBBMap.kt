@@ -218,11 +218,11 @@ internal class SBBMap(
 
     internal suspend fun updateZoomLevel(newZoomLevel: Double) {
         val map = getMap()
-        val currentPosition = this.cameraPosition
+        val currentTarget = map.cameraPosition.target
         val newCameraPosition =
             CameraPosition
                 .Builder()
-                .target(currentPosition.target)
+                .target(currentTarget)
                 .zoom(newZoomLevel)
                 .build()
         map.animateCamera(CameraUpdateFactory.newCameraPosition(newCameraPosition))

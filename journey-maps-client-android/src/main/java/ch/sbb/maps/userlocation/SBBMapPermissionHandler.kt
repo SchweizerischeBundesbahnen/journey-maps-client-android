@@ -31,9 +31,13 @@ internal class SBBMapPermissionHandler(
             )
             != PackageManager.PERMISSION_GRANTED
         ) {
+            val activity = context as? Activity ?: return
             ActivityCompat.requestPermissions(
-                context as Activity,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                activity,
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
                 SBBMapUserLocation.LOCATION_PERMISSION_REQUEST_CODE,
             )
         }
