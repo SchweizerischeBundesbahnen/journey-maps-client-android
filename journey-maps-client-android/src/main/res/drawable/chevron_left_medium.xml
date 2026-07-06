@@ -1,0 +1,12 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2024 Schweizerische Bundesbahnen AG (Swiss Federal Railways) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+  <path
+      android:pathData="M24.354,6.353L12.707,18L24.354,29.646L23.646,30.353L11.646,18.353L11.293,18L11.646,17.646L23.646,5.646L24.354,6.353Z"
+      android:fillColor="#000000"
+      android:fillType="evenOdd"/>
+</vector>

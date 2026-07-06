@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2024 Schweizerische Bundesbahnen AG (Swiss Federal Railways)
+
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'com.github.triplet.play'
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+play {
+//    serviceAccountCredentials.set(file(PLAY_STORE_SERVICE_ACCOUNT_JSON))
+    track = "alpha"
+    defaultToAppBundles.set(true)
+    artifactDir.set(layout.buildDirectory.dir("outputs/bundle/release").get().asFile)
+}
+// generate version code from publish version
+apply from: '../config/version-code.gradle'
+
+def uploadKeystoreFile = System.getenv("UPLOAD_KEYSTORE_FILE") ?: localProperties['UPLOAD_KEYSTORE_FILE']
+def uploadKeyAlias = System.getenv("UPLOAD_KEY_ALIAS") ?: localProperties['UPLOAD_KEY_ALIAS']
+def uploadKeyPassword = System.getenv("UPLOAD_KEY_PASSWORD") ?: localProperties['UPLOAD_KEY_PASSWORD']
+def uploadKeystorePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD") ?: localProperties['UPLOAD_KEYSTORE_PASSWORD']
+def journeyMapsApiKey = System.getenv('JOURNEY_MAPS_DEMO_API_KEY') ?: localProperties.getProperty('JOURNEY_MAPS_DEMO_API_KEY') ?: ""
+
+android {
+    compileSdk = 36
+    namespace = 'ch.sbb.maps.android.example'
+
+    defaultConfig {
+        applicationId = "ch.sbb.maps.android.example"
+        minSdk = 24
+        targetSdkVersion 36
+        versionCode generateVersionCode()
+        versionName PUBLISH_VERSION
+        testInstrumentationRunner
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
+        buildConfigField "String", "JOURNEY_MAPS_DEMO_API_KEY", "\"${journeyMapsApiKey}\""
+    }
+    signingConfigs {
+        release {
+            // read from gradle.properties
+            storeFile file(uploadKeystoreFile)
+            storePassword uploadKeystorePassword
+            keyAlias uploadKeyAlias
+            keyPassword uploadKeyPassword
+        }
+    }
+    buildTypes {
+        release {
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig = signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+    packagingOptions {
+        jniLibs {
+            excludes += ['/META-INF/{AL2.0,LGPL2.1}']
+        }
+        resources {
+            excludes += ['/META-INF/{AL2.0,LGPL2.1}']
+        }
+    }
+}
+ext {
+    versions = [
+            activity         : '1.13.0',
+            navigation       : '2.9.0',
+            junit            : '4.13.2',
+            androidXTestJunit: '1.3.0',
+            espressoCore     : '3.7.0'
+    ]
+}
+dependencies {
+    implementation project(':journey-maps-client-android')
+
+    implementation "androidx.activity:activity-compose:${versions.activity}"
+    implementation "androidx.activity:activity-ktx:${versions.activity}"
+    implementation "androidx.navigation:navigation-compose:${versions.navigation}"
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+
+    testImplementation "junit:junit:${versions.junit}"
+    androidTestImplementation "androidx.test.ext:junit:${versions.androidXTestJunit}"
+    androidTestImplementation "androidx.test.espresso:espresso-core:${versions.espressoCore}"
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+}
+
+afterEvaluate {
+//    publishing.publications {
+//        release(MavenPublication) {
+//            artifact layout.buildDirectory.file("outputs/bundle/release/${project.name}-release.aab")
+//            groupId = 'ch.sbb.rokas.android'
+//            artifactId = 'ch.sbb.maps.android.example'
+//            version = PUBLISH_VERSION
+//        }
+//    }
+}
