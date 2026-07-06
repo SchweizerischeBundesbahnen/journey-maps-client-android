@@ -9,10 +9,10 @@ Version 2.0.0 is the first open-source release. Internal infrastructure has been
 The SDK is now available on Maven Central. Replace your previous Artifactory dependency:
 
 ```gradle
-// Before (1.x.x) — requires SBB internal Artifactory access
+// Before (1.x.x) : requires SBB internal Artifactory access
 implementation 'ch.sbb.rokas.android:mapsdk:<VERSION>'
 
-// After (2.0.0) — public Maven Central
+// After (2.0.0) : public Maven Central
 implementation 'ch.sbb.maps:android-sdk:2.0.0'
 ```
 
