@@ -1,0 +1,19 @@
+# Built artifacts
+*.iml
+*.jks
+/build
+/captures
+
+# Gradle
+.gradle
+
+# Android
+.externalNativeBuild
+.cxx
+
+# IDE
+.idea
+.DS_Store
+
+# Local config
+local.properties

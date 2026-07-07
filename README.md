@@ -1,89 +1,244 @@
-# Open Source Repo Template
+# Journey Maps Client for Android
 
-> **Note:** This is a repository template. This README serves both as an example for your new repository, and also contains information on how to use the repository template.
+This android SDK allows you to easily incorporate SBB maps into your Android application.
 
-This repository is a template for creating new open-source repositories. It contains all the necessary files and documents to ensure that your open-source project is well-organized and follows best practices.
+![Android Example Bright](screenshots/onboarding_bright.jpg)
+![Android Example Dark](screenshots/onbaording_dark.jpg)
 
-#### Table Of Contents
+## Maintainers
 
-- [Introduction](#Introduction)
-- [Getting Started](#Getting-Started)
-- [Contributing](#Contributing)
-- [Documentation](#Documentation)
-- [Code of Conduct](#code-of-conduct)
-- [Coding Standards](#coding-standards)
-- [License](#License)
+- [Yoonjoo Lee](https://github.com/Lee-Yoonjoo)
 
-<a id="Introduction"></a>
+## Supported platforms
 
-## Introduction
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 
-When creating an open-source project, it's important to establish a clear structure and set of guidelines to ensure that the project is maintainable and sustainable. This repository provides a basic template that can be used as a starting point for new projects.
+## Precondition
 
-The template includes the following features:
+### Technology Stack
 
-- A basic file structure for organizing code, documentation, and related files
-- A CONTRIBUTING.md file with guidelines for contributing to the project
-- A CODE_OF_CONDUCT.md file with guidelines for community behavior
-- A LICENSE.md file with information about the open-source license that applies to the project
+The SBB Journey Maps Client is built with [Jetpack Compose](https://developer.android.com/jetpack/compose), ensuring seamless compatibility and a modern UI toolkit that enhances both the design and functionality of your application. For optimal integration and performance, we recommend developing your application using Jetpack Compose.
 
-<a id="Getting-Started"></a>
+### Technical Requirements
 
-## Getting-Started
+Please ensure your project meets the following minimum SDK requirements:
 
-Instructions for getting started with the repository, for e.g.:
+```gradle
+compileSdk 36
+minSdk 24
+```
 
-- Installation instructions
-- Usage instructions
+## Setup
 
-> To use this template please follow the steps as below:
->
-> - If creating via Self Service Portal (WIP)
-> - If Creating via GitHub Interface
->   - Click the "Use this template" button above, select "Create a new repository"
->   - Give your repository a name, and optionally a description. The owner will always be "SchweizerischeBundesbahnen".
->   - Set the visibility of your repository to "Public".
->   - Do not select "Include all branches".
->   - Click the "Create repository from template" button and you're done!
+### Adding the package to your application
 
-<a id="Documentation"></a>
+```gradle
+dependencies {
+    // Your other dependencies
+    ...
+        implementation 'ch.sbb.maps:android-sdk:<VERSION>' //latest version 2.0.0
+    ..
+}
+```
 
-## Documentation
+### Accessing ROKAS styles & datasources
 
-Links to all relevant documentation files, including:
+You need to get an **API key** to access the Map Tile Server and the style provided by ROKAS.
+To do so, register your application on [SBB API Platform](https://developer.sbb.ch/apis/journey-maps-tiles/information)
 
-- [CODING_STANDARDS.md](CODING_STANDARDS.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [LICENSE.md](LICENSE.md)
+For testing purposes only, you may use the key included in the Angular Client example on
+[angular.app.sbb.ch](https://angular.app.sbb.ch/journey-maps/components/angular/examples).
+Please be aware that this **key may be revoked at any time**.
 
-<a id="License"></a>
+Do not forget to provide an api key, in `local.properties` in your android project,
+`local.properties` should be excluded from version control by default. Do not commit it.
 
-## License
+```
+JOURNEY_MAPS_DEMO_API_KEY = "<YOUR-API-KEY>"
+```
 
-> Choose a license that meets the organization's legal requirements and supports the sharing and modification of the code.
-> Please follow the internal Open Source guidelines while chosing the License.
-> This repository includes two [suggested license texts](./suggested_licenses) (Apache 2.0 and EPL 2.0). Rename the license you prefer to [LICENSE.md](LICENSE.md) and remove the other one.
+## Usage
 
-This project is licensed under [INSERT LICENSE].
+### SBBMapView
 
-<a id="Contributing"></a>
+To utilize `DefaultMapView`, simply pass in a `tilesApiKey` for map tiles access. Default functionalities are set to true.
 
-## Contributing
+```kotlin
+@Composable
+fun DefaultMapView() {
+    SBBMapView(tilesApiKey = "your_api_key_here")
+}
+```
 
-Open-source projects thrive on collaboration and contributions from the community. To encourage others to contribute to your project, you should provide clear guidelines on how to get involved.
+The `ConfigurableMapView` function is a composable that displays a configurable map view. You can enable or disable user location, map style switch, and floor switch.
+It also takes an API key for the map tiles as an argument.
 
-This repository includes a [CONTRIBUTING.md](CONTRIBUTING.md) file that outlines how to contribute to the project, including how to submit bug reports, feature requests, and pull requests.
+```kotlin
+@Composable
+fun ConfigurableMapView() {
+    // To disable each functionality, set it false.
+    SBBMapView(
+        tilesApiKey = "your_api_key_here",
+        controls = SBBMapControls(
+            userLocationEnabled = false,
+            mapStyleSwitchEnabled = false,
+            floorSwitchEnabled = false,
+        ),
+    )
+}
+```
 
-<a id="coding-standards"></a>
+![Configurable map](screenshots/configurable_map.jpg)
 
-## Coding Standards
+### SBBMapView with POI
 
-To maintain a high level of code quality and consistency across your project, you should establish coding standards that all contributors should follow.
+This code defines a `PoiMapView` composable that displays a map view with Points of Interest (POIs) functionality.
 
-This repository includes a [CODING_STANDARDS.md](CODING_STANDARDS.md) file that outlines the coding standards that you should follow when contributing to the project.
+Callback functions are triggered when the user taps the map (`onMapClick`) or a POI (`onPoiClick`).
 
-<a id="code-of-conduct"></a>
+- `onMapClick` receives a `LatLng` for the tapped location.
+- `onPoiClick` receives a `Feature` representing the selected POI.
 
-## Code of Conduct
+You can implement your own handling using the supplied `LatLng` or `Feature`.
 
-To ensure that your project is a welcoming and inclusive environment for all contributors, you should establish a good [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+```kotlin
+@Composable
+fun PoiMapView() {
+    // ...
+    val selectedPoi = remember { mutableStateOf<Feature?>(null) }
+    val clickedPoint = remember { mutableStateOf<LatLng?>(null) }
+    val newCoordinates = remember { MutableLiveData(LatLng(46.94881863, 7.43913775)) }
+    val zoomLevel = remember { MutableLiveData<Double>(17.0) }
+
+    SBBMapView(
+        tilesApiKey = tilesApiKey,
+        cameraPosition = cameraPositionForBern,
+        centerTo = newCoordinates,
+        zoomLevel = zoomLevel,
+        controls = SBBMapControls(
+            floorSwitchEnabled = false,
+        ),
+        poi = SBBMapPoi(
+            enabled = true,
+            selectedPoi = selectedPoi,
+            subcategories = selectedPoiSubcategories,
+        ),
+        callbacks = SBBMapCallbacks(
+            onCameraIdle = {
+                selectedPoi.value = null
+                clickedPoint.value = null
+            },
+            onMapClick = { latLng ->
+                clickedPoint.value = latLng
+                selectedPoi.value = null
+            },
+            onPoiClick = { feature ->
+                selectedPoi.value = feature
+                clickedPoint.value = null
+            },
+        ),
+    )
+}
+```
+
+![POI details](screenshots/poi_details_bright.jpg)
+![POI dark](screenshots/poi_dark.jpg)
+![POI filter](screenshots/poi_filter.jpg)
+
+### SBBMapView with POI Subcategories
+
+The `PoiMapView` composable also supports filtering POIs by subcategory.
+
+```kotlin
+@Composable
+fun PoiMapView() {
+    // ...
+    val selectedPoiSubcategories = remember {
+        MutableLiveData(DEFAULT_POI_FILTER_SUB_CATEGORIES)
+    }
+    val selectedPoi = remember { mutableStateOf<Feature?>(null) }
+
+    SBBMapView(
+        // ...
+        poi = SBBMapPoi(
+            enabled = true,
+            selectedPoi = selectedPoi,
+            subcategories = selectedPoiSubcategories,
+        ),
+        // ...
+    )
+}
+
+// Available subcategories of poi filter via SBBPoiCategoryType enum.
+val DEFAULT_POI_FILTER_SUB_CATEGORIES = listOf(
+    SBBPoiCategoryType.PARK_RAIL.value,
+    SBBPoiCategoryType.CAR_SHARING.value,
+    SBBPoiCategoryType.P2P_CAR_SHARING.value,
+    SBBPoiCategoryType.BIKE_PARKING.value,
+    SBBPoiCategoryType.BIKE_SHARING.value,
+    SBBPoiCategoryType.ON_DEMAND.value,
+)
+```
+
+![POI Subcategories](screenshots/poi_subcategory_bike_parking.jpg)
+
+### POIs: GeoJSON (POIs Areas)
+
+You can render external POI areas by passing a GeoJSON FeatureCollection into the SDK. The expected geometry is typically MultiPolygon and each feature may include properties such as a category string used by your style.
+
+```kotlin
+@Composable
+fun GeoJsonMapView(tilesApiKey: String) {
+    // default without polygon
+    val geoJsonState = remember { MutableLiveData(SBBGeoJson.EMPTY) }
+
+    // example : polygon with GeoJSON sample
+    geoJsonState.value = SBBGeoJson(GeoJsonSamples.thunParkRideParking)
+
+    // example : polygon with GeoJson and customized colors
+    geoJsonState.value = SBBGeoJson(
+        geoJson = GeoJsonSamples.thunParkRideParking,
+        fillColor = Color.BLUE,
+        lineColor = Color.RED,
+        lineWidth = 3,
+    )
+
+    SBBMapView(
+        // ...
+        controls = SBBMapControls(
+            floorSwitchEnabled = false,
+        ),
+        poi = SBBMapPoi(
+            enabled = true,
+            geoJson = geoJsonState,
+        ),
+        // ...
+    )
+}
+```
+
+- The convenience factory `SBBGeoJson(geoJsonString)` by default writes into the `journey-pois-areas-source` used by the Journey Maps style. Override `sourceId` to target a different source id.
+- Features should be a FeatureCollection (MultiPolygon) and may include a category property (String) if your style expects it.
+
+![POIs: GeoJSON (POIs Areas)](screenshots/pois_areas_geojson.png)
+
+## Features
+
+| Feature                                 | Android |
+|-----------------------------------------|---------|
+| Map Styles (bright, dark and Satellite) | ✅       |
+| Camera                                  | ✅       |
+| Gesture                                 | ✅       |
+| Location                                | ✅       |
+| Customizable UI                         | ✅       |
+| Floor Switcher (switch levels)          | ✅       |
+| POIs: Display                           | ✅       |
+| POIs: Event Triggering and Select       | ✅       |
+| POIs: Subcategories                     | ✅       |
+| POIs: GeoJSON (POIs Areas)              | ✅       |
+
+## Example App
+
+### SBB Journey Maps
+
+![SBB Journey Maps Logo](journey-maps-client-android-example/src/main/ic_launcher-playstore.png)

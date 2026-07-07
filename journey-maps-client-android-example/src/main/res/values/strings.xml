@@ -1,0 +1,11 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2024 Schweizerische Bundesbahnen AG (Swiss Federal Railways) -->
+<resources>
+    <string name="app_name">SBB Journey Maps</string>
+    <string name="app_bar_title_onboarding">SBB Map</string>
+    <string name="app_bar_title_default">SBB Default Map</string>
+    <string name="app_bar_title_configurable">SBB Configurable Map</string>
+    <string name="app_bar_title_poi">SBB POI Map</string>
+    <string name="app_bar_title_poi_with_subcategories">SBB POI Map with Subcategories</string>
+    <string name="app_bar_title_geojson">GeoJSON</string>
+</resources>
