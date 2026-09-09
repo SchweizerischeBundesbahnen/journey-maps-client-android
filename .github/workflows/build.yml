@@ -1,0 +1,37 @@
+name: Build SDK and Example App
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode keystore
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keystore.jks"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Compile SDK and example app
+        run: ./gradlew :journey-maps-client-android:assembleRelease :journey-maps-client-android-example:assembleDebug
+        env:
+          UPLOAD_KEYSTORE_FILE: ${{ runner.temp }}/keystore.jks
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}

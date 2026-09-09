@@ -1,0 +1,4 @@
+[*.{kt,kts}]
+ktlint_function_naming_ignore_when_annotated_with = Composable
+ktlint_standard_magic-number = disabled
+ktlint_standard_long-parameter-list = disabled
