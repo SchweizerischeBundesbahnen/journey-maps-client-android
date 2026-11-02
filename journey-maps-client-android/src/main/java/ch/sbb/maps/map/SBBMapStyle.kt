@@ -6,11 +6,11 @@ package ch.sbb.maps.map
 internal sealed class SBBMapStyle(
     private val style: String?,
 ) {
-    internal object BRIGHT : SBBMapStyle("journey_maps_bright_v1")
+    internal object BRIGHT : SBBMapStyle("sbbmaps_bright")
 
-    internal object DARK : SBBMapStyle("journey_maps_dark_v1")
+    internal object DARK : SBBMapStyle("sbbmaps_dark")
 
-    internal object SATELLITE : SBBMapStyle("journey_maps_aerial_v1")
+    internal object SATELLITE : SBBMapStyle("sbbmaps_aerial")
 
     internal class CUSTOM(
         internal var customUrl: String,

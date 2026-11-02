@@ -155,9 +155,9 @@ https://journey-maps-tiles.api.sbb.ch/styles/{STYLE}/style.json?api_key={YOUR_AP
 ```
 
 Available styles:
-- `journey_maps_bright_v1`
-- `journey_maps_dark_v1`
-- `journey_maps_aerial_v1`
+- `sbbmaps_bright`
+- `sbbmaps_dark`
+- `sbbmaps_aerial`
 
 When using `SBBMapView`, style switching is handled automatically via the controls overlay.
 
