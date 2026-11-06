@@ -24,6 +24,12 @@ private val POI_LAYER_IDS =
         "journey-pois-third-lvl",
         "journey-pois-second-2d",
     )
+
+private val POI_CATEGORY_FILTER_LAYER_IDS =
+    listOf(
+        "journey-pois-second-lvl",
+        "journey-pois-first",
+    )
 private const val POI_SBB_ID = "sbbId"
 private const val POI_ICON_PROPERTY = "icon"
 private const val POI_SELECTED_MARKER = "marker_poi_bright_selected"
@@ -33,6 +39,8 @@ private const val GEO_JSON_SOURCE_ID = "service_points"
 internal class SBBMapPoiController(
     private val map: MapLibreMap,
 ) {
+    private val gson = com.google.gson.Gson()
+
     private var poiFilterSubCategoriesDefault = DEFAULT_POI_FILTER_SUB_CATEGORIES
 
     private var geoJsonSource = map.style?.getSourceAs<GeoJsonSource>(GEO_JSON_SOURCE_ID)
@@ -44,24 +52,84 @@ internal class SBBMapPoiController(
         val categories = poiFilterSubCategories ?: poiFilterSubCategoriesDefault
 
         map.getStyle { style ->
-            POI_LAYER_IDS.forEach { layerId ->
-                val layer = style.getLayerAs<SymbolLayer>(layerId)
-                layer?.let {
-                    val expressionList =
-                        categories.map { subCategory ->
-                            Expression.eq(
-                                Expression.get("subCategory"),
-                                Expression.literal(subCategory),
-                            )
-                        }
-                    val filter = Expression.any(*expressionList.toTypedArray())
-
-                    it.setFilter(filter)
-                    it.setProperties(PropertyFactory.visibility(if (enablePoi) Property.VISIBLE else Property.NONE))
+            POI_CATEGORY_FILTER_LAYER_IDS.forEach { layerId ->
+                style.getLayerAs<SymbolLayer>(layerId)?.let { layer ->
+                    val oldFilter = layer.filter?.toArray()?.toList() ?: emptyList()
+                    val newFilter = setPoiCategories(oldFilter, categories)
+                    layer.setFilter(Expression.raw(gson.toJson(newFilter)))
                 }
+            }
+
+            POI_LAYER_IDS.forEach { layerId ->
+                style.getLayerAs<SymbolLayer>(layerId)?.setProperties(
+                    PropertyFactory.visibility(if (enablePoi) Property.VISIBLE else Property.NONE),
+                )
             }
         }
     }
+
+    private fun setPoiCategories(
+        filterExpression: List<Any?>,
+        categories: List<String>,
+    ): List<Any?> =
+        if (hasGetSubCategory(gson.toJson(filterExpression))) {
+            replaceExistingPoiCategories(filterExpression, categories)
+        } else {
+            insertNewPoiCategories(filterExpression, categories)
+        }
+
+    private fun insertNewPoiCategories(
+        filterExpression: List<Any?>,
+        categories: List<String>,
+    ): List<Any?> {
+        val categoryClause = listOf("in", listOf("get", "subCategory"), listOf("literal", categories))
+        if (filterExpression.isEmpty()) return categoryClause
+
+        val operator = (filterExpression.firstOrNull() as? String)?.lowercase()
+        return if (operator == "all") {
+            listOf(filterExpression.first()) + listOf(categoryClause) + filterExpression.drop(1)
+        } else {
+            listOf("all", categoryClause, filterExpression)
+        }
+    }
+
+    private fun replaceExistingPoiCategories(
+        filterExpression: List<Any?>,
+        categories: List<String>,
+    ): List<Any?> {
+        val operator = (filterExpression.firstOrNull() as? String)?.lowercase() ?: return filterExpression
+
+        return when (operator) {
+            "all", "any" ->
+                listOf(filterExpression.first()) +
+                    filterExpression.drop(1).map { child ->
+                        asList(child)?.let { replaceExistingPoiCategories(it, categories) } ?: child
+                    }
+
+            "in" -> {
+                if (filterExpression.size == 3 && isGetSubCategory(gson.toJson(filterExpression[1]))) {
+                    listOf(filterExpression[0], filterExpression[1], listOf("literal", categories))
+                } else {
+                    filterExpression
+                }
+            }
+
+            else -> filterExpression
+        }
+    }
+
+    private fun hasGetSubCategory(expression: String): Boolean =
+        expression.contains("[\"in\",[\"get\",\"subCategory\"]")
+
+    private fun isGetSubCategory(expression: String): Boolean =
+        expression == "[\"get\",\"subCategory\"]"
+
+    private fun asList(value: Any?): List<Any?>? =
+        when (value) {
+            is List<*> -> value
+            is Array<*> -> value.toList()
+            else -> null
+        }
 
     internal fun setupPoiClickEvent(point: LatLng?): Feature? {
         if (point == null) return null

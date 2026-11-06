@@ -4,9 +4,11 @@
 package ch.sbb.maps.floor
 
 import androidx.lifecycle.MutableLiveData
-import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.ToNumberPolicy
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.BackgroundLayer
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillExtrusionLayer
 import org.maplibre.android.style.layers.FillLayer
@@ -15,6 +17,7 @@ import org.maplibre.android.style.layers.Layer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.PropertyValue
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 
@@ -23,22 +26,30 @@ internal class SBBMapFloorSwitchController(
 ) {
     internal val floors: MutableLiveData<List<Int>> = MutableLiveData(emptyList())
 
-    private val gson = Gson()
+    private val gson =
+        GsonBuilder()
+            .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
+            .create()
+
+    private var maskVisibleOpacity: PropertyValue<*>? = null
+    private var maskOpacityCaptured = false
+
+    internal fun onStyleReloaded() {
+        maskOpacityCaptured = false
+        maskVisibleOpacity = null
+    }
 
     internal fun getAvailableFloorFilters(selectedFloor: Int) {
         floors.value = getAvailableFloors().value
         map.style
             ?.layers
-            ?.filter { layer ->
-                layer.id.endsWith(ROKAS_FLOOR_ID_SUFFIX) ||
-                    layer.id.startsWith(ROKAS_INDOOR_PREFIX) ||
-                    layer.id.startsWith(ROKAS_GEOJSON_WALK_PREFIX) ||
-                    layer.id.startsWith(ROKAS_WALK_PREFIX) ||
-                    layer.id.startsWith(ROKAS_BACKGROUND_MASK_PREFIX)
-            }?.map { layer -> layer.id }
+            ?.filter { layer -> layer.id.endsWith(ROKAS_FLOOR_ID_SUFFIX) }
+            ?.map { layer -> layer.id }
             ?.also { knownLvlLayerIds ->
                 updateMapLayers(knownLvlLayerIds, selectedFloor)
             }
+
+        updateBackgroundMask(selectedFloor)
     }
 
     private fun getAvailableFloors(): MutableLiveData<List<Int>> {
@@ -71,36 +82,60 @@ internal class SBBMapFloorSwitchController(
         map.getStyle { style ->
             knownLvlLayerIds.forEach { layerId ->
                 val layer = style.getLayer(layerId)
-                if (layer?.id?.startsWith(ROKAS_BACKGROUND_MASK_PREFIX) == true) {
-                    layer.setProperties(
-                        PropertyFactory.visibility(
-                            if (selectedFloor < 0) Property.VISIBLE else Property.NONE,
-                        ),
-                    )
-                }
-
                 layer?.let { currentLayer ->
-                    val newFilter = getNewFilter(currentLayer, selectedFloor)
-
-                    newFilter.let {
-                        when (currentLayer) {
-                            is SymbolLayer -> currentLayer.withFilter(it)
-                            is CircleLayer -> currentLayer.withFilter(it)
-                            is HeatmapLayer -> currentLayer.withFilter(it)
-                            is FillLayer -> currentLayer.withFilter(it)
-                            is FillExtrusionLayer -> currentLayer.withFilter(it)
-                            is LineLayer -> currentLayer.withFilter(it)
-                        }
+                    val newFilter = getNewFilter(currentLayer, selectedFloor) ?: return@let
+                    when (currentLayer) {
+                        is SymbolLayer -> currentLayer.withFilter(newFilter)
+                        is CircleLayer -> currentLayer.withFilter(newFilter)
+                        is HeatmapLayer -> currentLayer.withFilter(newFilter)
+                        is FillLayer -> currentLayer.withFilter(newFilter)
+                        is FillExtrusionLayer -> currentLayer.withFilter(newFilter)
+                        is LineLayer -> currentLayer.withFilter(newFilter)
                     }
                 }
             }
         }
     }
 
+    private fun updateBackgroundMask(selectedFloor: Int) {
+        map.getStyle { style ->
+            val mask = style.getLayer(ROKAS_BACKGROUND_MASK_LAYER) as? BackgroundLayer ?: return@getStyle
+
+            if (!maskOpacityCaptured) {
+                maskVisibleOpacity = mask.backgroundOpacity
+                maskOpacityCaptured = true
+                val prop = mask.backgroundOpacity
+                android.util.Log.d(
+                    "FloorMask",
+                    "original backgroundOpacity value=${prop.value} " +
+                        "isExpression=${prop.isExpression} expression=${prop.expression} " +
+                        "color=${mask.backgroundColor.value}",
+                )
+            }
+
+            val shownOpacity = resolveShownOpacity()
+            mask.setProperties(
+                PropertyFactory.visibility(Property.VISIBLE),
+                if (selectedFloor < 0) shownOpacity else PropertyFactory.backgroundOpacity(0f),
+            )
+        }
+    }
+
+    private fun resolveShownOpacity(): PropertyValue<*> {
+        val captured = maskVisibleOpacity ?: return PropertyFactory.backgroundOpacity(1f)
+        val expression = if (captured.isExpression) captured.expression else null
+        val constant = captured.value as? Float
+        return when {
+            expression != null -> PropertyFactory.backgroundOpacity(expression)
+            constant != null -> PropertyFactory.backgroundOpacity(constant)
+            else -> PropertyFactory.backgroundOpacity(1f)
+        }
+    }
+
     private fun getNewFilter(
         currentLayer: Layer,
         selectedFloor: Int,
-    ): Expression {
+    ): Expression? {
         val oldFilter =
             when (currentLayer) {
                 is SymbolLayer -> currentLayer.filter
@@ -110,85 +145,54 @@ internal class SBBMapFloorSwitchController(
                 is FillExtrusionLayer -> currentLayer.filter
                 is LineLayer -> currentLayer.filter
                 else -> null
-            } ?: return Expression.literal(true)
+            } ?: return null
 
-        val oldFilterList = oldFilter.toArray().toList()
-        val newFilter = mutableListOf<Any>()
-        newFilter.add(oldFilterList.firstOrNull() ?: return Expression.literal(true))
-
-        var floorFound = false
-
-        oldFilterList.drop(1).forEach { item ->
-            when (item) {
-                is String -> {
-                    if (isFloorFilter(item)) {
-                        floorFound = true
-                        newFilter.add(item)
-                    } else {
-                        newFilter.add(item)
-                    }
-                }
-
-                is Array<*> -> {
-                    val newInnerPart = mutableListOf<Any>()
-                    newInnerPart.add(item.firstOrNull() ?: return Expression.literal(true))
-                    var levelFound = false
-
-                    item.drop(1).forEach { innerPart ->
-                        val innerPartString = gson.toJson(innerPart)
-                        when {
-                            isCaseLevelFilter(innerPartString) -> {
-                                levelFound = true
-                                innerPart?.let { newInnerPart.add(it) }
-                            }
-
-                            isFloorFilter(innerPartString) -> {
-                                levelFound = true
-                                floorFound = true
-                                innerPart?.let { newInnerPart.add(it) }
-                            }
-
-                            levelFound -> {
-                                levelFound = false
-                                newInnerPart.add(selectedFloor)
-                            }
-
-                            else -> {
-                                innerPart?.let { newInnerPart.add(it) }
-                            }
-                        }
-                    }
-                    newFilter.add(newInnerPart)
-                }
-
-                else -> {
-                    if (floorFound) {
-                        floorFound = false
-                        newFilter.add(selectedFloor)
-                    } else {
-                        newFilter.add(item)
-                    }
-                }
-            }
-        }
-
-        val filterString = gson.toJson(newFilter)
-        return Expression.raw(filterString)
+        val tree = expressionToList(oldFilter) ?: return oldFilter
+        val rewritten = replaceFloor(tree, selectedFloor)
+        return Expression.raw(gson.toJson(rewritten))
     }
 
-    private fun isFloorFilter(innerPartString: String): Boolean = innerPartString.contains(FLOOR)
+    private fun expressionToList(expression: Expression): List<*>? =
+        runCatching { gson.fromJson(expression.toString(), List::class.java) }.getOrNull()
 
-    private fun isCaseLevelFilter(innerPartString: String): Boolean =
-        innerPartString.startsWith("[\"case\",[\"has\",\"level\"],[\"get\",\"level\"]")
+    private fun replaceFloor(
+        expression: Any?,
+        floor: Int,
+    ): Any? {
+        if (expression !is List<*> || expression.isEmpty()) return expression
+
+        val operator = expression.first()
+        if (isBooleanGroup(operator)) {
+            return listOf(operator) + expression.drop(1).map { replaceFloor(it, floor) }
+        }
+        if (operator == "==" && expression.size == 3 && isLevelFilterIdiom(expression[1])) {
+            return listOf(operator, expression[1], floor)
+        }
+        return expression
+    }
+
+    private fun isBooleanGroup(operator: Any?): Boolean = operator in BOOLEAN_GROUP_OPERATORS
+
+    private fun isLevelFilterIdiom(operand: Any?): Boolean {
+        val operandString = gson.toJson(operand)
+        return operandString == LEVEL_GETTER ||
+            isCaseFilter(operandString, LEVEL) ||
+            isCaseFilter(operandString, FLOOR)
+    }
+
+    private fun isCaseFilter(
+        operandString: String,
+        property: String,
+    ): Boolean = operandString.startsWith("[\"case\",[\"has\",\"$property\"],[\"get\",\"$property\"]")
 
     companion object SBBMapFloorSwitchControllerConsts {
         const val ROKAS_FLOOR_ID_SUFFIX = "-lvl"
-        const val ROKAS_INDOOR_PREFIX = "rokas_indoor"
-        const val ROKAS_GEOJSON_WALK_PREFIX = "geojson_walk"
-        const val ROKAS_WALK_PREFIX = "rokas-walk"
-        const val ROKAS_BACKGROUND_MASK_PREFIX = "rokas_background_mask"
+        const val ROKAS_BACKGROUND_MASK_LAYER = "rokas_background_mask"
         const val SERVICE_POINTS_SOURCE = "service_points"
         const val FLOOR_LIST_PROPERTY = "floor_liststring"
         const val FLOOR = "floor"
+        const val LEVEL = "level"
+        const val LEVEL_GETTER = "[\"get\",\"level\"]"
+        val BOOLEAN_GROUP_OPERATORS = setOf("all", "any", "none")
     }
 }

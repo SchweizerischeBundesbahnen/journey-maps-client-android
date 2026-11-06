@@ -181,6 +181,7 @@ internal class SBBMap(
                 poiFilterSubCategories = selectedCategories.value,
             )
             SBBGeoJson.addToStyle(it, displayedGeoJson)
+            floorSwitch?.onStyleReloaded()
         }
     }
 
