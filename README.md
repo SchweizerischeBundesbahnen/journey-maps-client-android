@@ -2,8 +2,8 @@
 
 This android SDK allows you to easily incorporate SBB maps into your Android application.
 
-![Android Example Bright](screenshots/onboarding_bright.jpg)
-![Android Example Dark](screenshots/onbaording_dark.jpg)
+![Android Example Bright](screenshots/onboarding_bright.png)
+![Android Example Dark](screenshots/onboarding_dark.png)
 
 ## Maintainers
 
