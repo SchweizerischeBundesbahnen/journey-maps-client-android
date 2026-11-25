@@ -4,12 +4,20 @@
 package ch.sbb.maps.floor
 
 import androidx.lifecycle.MutableLiveData
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.FILTERABLE_LAYER_TYPES
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.FLOOR_LAYER_ID_PREFIXES
 import ch.sbb.maps.floor.SBBMapFloorStyleIds.FLOOR_LIST_PROPERTY
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.FLOOR_METADATA_KEY
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.FLOOR_METADATA_VALUE_2D
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.FLOOR_METADATA_VALUE_LEVEL
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.LEVEL_GREYOUT_LAYER
+import ch.sbb.maps.floor.SBBMapFloorStyleIds.ROKAS_2D_ID_SUFFIX
 import ch.sbb.maps.floor.SBBMapFloorStyleIds.ROKAS_BACKGROUND_MASK_LAYER
 import ch.sbb.maps.floor.SBBMapFloorStyleIds.ROKAS_FLOOR_ID_SUFFIX
 import ch.sbb.maps.floor.SBBMapFloorStyleIds.SERVICE_POINTS_SOURCE
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
@@ -31,20 +39,37 @@ internal class SBBMapFloorSwitchController(
     private val map: MapLibreMap,
 ) {
     internal val floors: MutableLiveData<List<Int>> = MutableLiveData(emptyList())
+    private var cachedStyle: Style? = null
 
-    private var maskStyle: Style? = null
-    private var maskOpacity: PropertyValue<Float>? = null
+    private val originalFilters = mutableMapOf<String, JsonArray>()
+
+    private val originalOpacities = mutableMapOf<String, PropertyValue<Float>>()
 
     internal fun getAvailableFloorFilters(selectedFloor: Int) {
         floors.value = getAvailableFloors().value
         map.getStyle { style ->
-            updateBackgroundMask(style, selectedFloor)
-            style.layers
-                .filter { it.id.endsWith(ROKAS_FLOOR_ID_SUFFIX) }
-                .forEach { layer ->
-                    val filter = layer.filterOrNull ?: return@forEach
-                    layer.filterOrNull = rewriteFloor(filter, selectedFloor)
-                }
+            val styleLayers = parseStyleLayers(style)
+
+            if (cachedStyle !== style) {
+                cachedStyle = style
+                originalFilters.clear()
+                originalOpacities.clear()
+            }
+
+            collectFloorLayerIds(styleLayers).forEach { layerId ->
+                val layer = style.getLayer(layerId) ?: return@forEach
+                val original =
+                    originalFilters.getOrPut(layerId) {
+                        val filter = layer.filterOrNull ?: return@forEach
+                        parseFilter(filter) ?: return@forEach
+                    }
+                layer.filterOrNull = Expression.raw(replaceFloor(original, selectedFloor).toString())
+            }
+
+            val indoorEnabled = floors.value?.isNotEmpty() == true || selectedFloor != 0
+
+            updateTwoDAndLevelLayers(style, styleLayers, indoorEnabled)
+            updateBackgroundOverlays(style, indoorEnabled, selectedFloor)
         }
     }
 
@@ -70,41 +95,84 @@ internal class SBBMapFloorSwitchController(
 
         return floors
     }
+    private fun collectFloorLayerIds(styleLayers: List<JsonObject>): List<String> =
+        styleLayers.mapNotNull { layerJson ->
+            val id = layerJson.get("id")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
+            val type = layerJson.get("type")?.takeIf { it.isJsonPrimitive }?.asString
+            if (type !in FILTERABLE_LAYER_TYPES) return@mapNotNull null
 
-    /**
-     * Keeps the mask VISIBLE and toggles its opacity between 0
-     * and the value the style defines.
-     **/
-    private fun updateBackgroundMask(
+            val isLevelLayer = layerJson.isFloorMetadata(FLOOR_METADATA_VALUE_LEVEL) ||
+                id.endsWith(ROKAS_FLOOR_ID_SUFFIX)
+            val matches = isLevelLayer || FLOOR_LAYER_ID_PREFIXES.any { id.startsWith(it) }
+            if (matches) id else null
+        }
+
+    private fun parseStyleLayers(style: Style): List<JsonObject> {
+        val json = runCatching { style.json }.getOrNull() ?: return emptyList()
+        val root = runCatching { JsonParser.parseString(json) }.getOrNull() as? JsonObject ?: return emptyList()
+        val layers = root.get("layers") as? JsonArray ?: return emptyList()
+        return layers.mapNotNull { it as? JsonObject }
+    }
+
+    private fun JsonObject.floorMetadata(): String? {
+        val metadata = get("metadata") as? JsonObject ?: return null
+        val value = metadata.get(FLOOR_METADATA_KEY) ?: return null
+        return value.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun JsonObject.isFloorMetadata(expected: String): Boolean = floorMetadata() == expected
+
+
+    private fun updateTwoDAndLevelLayers(
         style: Style,
+        styleLayers: List<JsonObject>,
+        indoorEnabled: Boolean,
+    ) {
+        styleLayers.forEach { layerJson ->
+            val id = layerJson.get("id")?.takeIf { it.isJsonPrimitive }?.asString ?: return@forEach
+            val floorMetadata = layerJson.floorMetadata()
+            val is2D = floorMetadata?.let { it == FLOOR_METADATA_VALUE_2D } ?: id.endsWith(ROKAS_2D_ID_SUFFIX)
+            val isLevel = floorMetadata?.let { it == FLOOR_METADATA_VALUE_LEVEL } ?: id.endsWith(ROKAS_FLOOR_ID_SUFFIX)
+
+            val visibility =
+                when {
+                    is2D -> if (indoorEnabled) Property.NONE else Property.VISIBLE
+                    isLevel -> if (indoorEnabled) Property.VISIBLE else Property.NONE
+                    else -> return@forEach
+                }
+            style.getLayer(id)?.setProperties(PropertyFactory.visibility(visibility))
+        }
+    }
+
+
+    private fun updateBackgroundOverlays(
+        style: Style,
+        indoorEnabled: Boolean,
         selectedFloor: Int,
     ) {
-        val mask = style.getLayerAs<BackgroundLayer>(ROKAS_BACKGROUND_MASK_LAYER) ?: return
-        if (maskStyle !== style) {
-            maskStyle = style
-            maskOpacity = mask.backgroundOpacity
-        }
-        mask.setProperties(
-            PropertyFactory.visibility(Property.VISIBLE),
-            if (selectedFloor < 0) styleOpacity() else PropertyFactory.backgroundOpacity(0f),
-        )
+        setBackgroundShown(style, ROKAS_BACKGROUND_MASK_LAYER, selectedFloor < 0)
+        setBackgroundShown(style, LEVEL_GREYOUT_LAYER, indoorEnabled && selectedFloor != 0)
     }
 
-    private fun styleOpacity(): PropertyValue<*> {
-        val expression = maskOpacity?.expression
-        return when {
-            expression != null -> PropertyFactory.backgroundOpacity(expression)
-            else -> PropertyFactory.backgroundOpacity(maskOpacity?.value ?: 1f)
-        }
+
+    private fun setBackgroundShown(
+        style: Style,
+        layerId: String,
+        shown: Boolean,
+    ) {
+        val layer = style.getLayerAs<BackgroundLayer>(layerId) ?: return
+        val original = originalOpacities.getOrPut(layerId) { layer.backgroundOpacity }
+        val opacity =
+            when {
+                !shown -> PropertyFactory.backgroundOpacity(0f)
+                original.expression != null -> PropertyFactory.backgroundOpacity(original.expression)
+                else -> PropertyFactory.backgroundOpacity(original.value ?: 1f)
+            }
+        layer.setProperties(PropertyFactory.visibility(Property.VISIBLE), opacity)
     }
 
-    private fun rewriteFloor(
-        filter: Expression,
-        floor: Int,
-    ): Expression {
-        val tree = runCatching { JsonParser.parseString(filter.toString()) }.getOrNull() ?: return filter
-        return Expression.raw(replaceFloor(tree, floor).toString())
-    }
+    private fun parseFilter(filter: Expression): JsonArray? =
+        runCatching { JsonParser.parseString(filter.toString()) }.getOrNull() as? JsonArray
 
     private fun replaceFloor(
         node: JsonElement,
@@ -112,28 +180,41 @@ internal class SBBMapFloorSwitchController(
     ): JsonElement {
         if (node !is JsonArray || node.size() == 0) return node
         val operator = node[0].takeIf { it.isJsonPrimitive }?.asString
-        return when (operator) {
-            "all", "any", "none" ->
+        return when {
+            operator == "all" || operator == "any" || operator == "none" ->
                 JsonArray().apply {
                     add(node[0])
                     node.drop(1).forEach { add(replaceFloor(it, floor)) }
                 }
-            "==" if node.size() == 3 && isLevelLookup(node[1]) ->
+
+            isComparisonOperator(operator) && node.size() == 3 && isLevelLookup(node[1]) ->
                 JsonArray().apply {
                     add(node[0])
                     add(node[1])
                     add(floor)
                 }
+
             else -> node
         }
     }
 
-    /** Whether the expression looks up the floor of a feature. */
+    private fun isComparisonOperator(operator: String?): Boolean =
+        operator == "==" || operator == "!=" ||
+            operator == "<" || operator == "<=" ||
+            operator == ">" || operator == ">="
+
+
     private fun isLevelLookup(operand: JsonElement): Boolean {
+        if (operand.isJsonPrimitive && operand.asJsonPrimitive.isString) {
+
+            val key = operand.asString
+            return key == "floor" || key == "level"
+        }
         val json = operand.toString()
         return json == """["get","level"]""" ||
-                json.startsWith("""["case",["has","level"],["get","level"]""") ||
-                json.startsWith("""["case",["has","floor"],["get","floor"]""")
+            json == """["get","floor"]""" ||
+            json.startsWith("""["case",["has","level"],["get","level"]""") ||
+            json.startsWith("""["case",["has","floor"],["get","floor"]""")
     }
 
     private var Layer.filterOrNull: Expression?
@@ -158,5 +239,4 @@ internal class SBBMapFloorSwitchController(
                 is LineLayer -> setFilter(value)
             }
         }
-
 }
