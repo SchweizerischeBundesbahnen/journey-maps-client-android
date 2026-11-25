@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 Open-source release under the MIT license. See [MIGRATION.md](MIGRATION.md) for all breaking changes and migration instructions.
 
+### Bugfixes
+- The map now reacts to dark mode changes while displayed: toggling the theme updates already-visible maps instead of applying only on first composition.
+
+### Technical Maintenance
+- Split the floor and POI controllers into focused internal classes (`SBBMapFloorStyleLayers`, `SBBMapFloorFilter`, `SBBMapFloorVisibility`, `SBBMapPoiLayerIds`, `SBBMapPoiCategoryFilter`, `SBBMapPoiSelection`). Internal only; no public API change.
+
 ## 1.0.10
 
 ### Changes

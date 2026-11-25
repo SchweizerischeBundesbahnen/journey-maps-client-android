@@ -195,6 +195,18 @@ internal class SBBMap(
         )
     }
 
+    internal suspend fun updateDarkMode(newIsDarkMode: Boolean) {
+        if (isDarkMode.value == newIsDarkMode) return
+        isDarkMode.value = newIsDarkMode
+        updateMapStyle(
+            when {
+                isSatelliteView.value == true -> SBBMapStyle.SATELLITE
+                newIsDarkMode -> SBBMapStyle.DARK
+                else -> SBBMapStyle.BRIGHT
+            },
+        )
+    }
+
     /**
      * @return if the map location has successfully been enabled
      */

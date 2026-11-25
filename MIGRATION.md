@@ -161,6 +161,42 @@ Available styles:
 
 When using `SBBMapView`, style switching is handled automatically via the controls overlay.
 
+## Map style & Shortbread schema
+
+The `sbbmaps_*` styles are built on the Shortbread schema. The SDK wraps the style
+internals so that **consuming apps do not reference style layer ids, sources, or
+metadata tags directly**. Everything the app touches goes through the public API and
+stays stable across style changes:
+
+| What your app uses | Public API | Backed by (style internal, maintained by the SDK) |
+|---|---|---|
+| Filter visible POIs by category | `SBBMapPoi.subcategories` + `SBBPoiCategoryType` (e.g. `PARK_RAIL`, `PARKING_PLACE`) | `subCategory` feature property on the POI layers |
+| Enable POIs and react to a tap | `SBBMapPoi.enabled`, `callbacks.onPoiClick` → returns the tapped `Feature` | POI layers (`journey-pois*`) and the `sbbId` feature property |
+| Render polygon overlays (POI areas) | `SBBGeoJson(geoJson)` | Default source id `journey-pois-areas-source` (override via `SBBGeoJson(geoJson, sourceId = ...)`) |
+| Floor / level switching | `controls.floorSwitchEnabled` (and `SBBMapFloorSwitch`) | `general.floor` metadata (`level`, `2D`, `level_greyout`) and the `-lvl` / `-2d` layer suffixes |
+
+Notes:
+
+- `journey-pois*`, `journey-pois-areas-source` and the `sbbId` property are **SBB
+  extensions** on top of the Trafimage base map. They are resolved inside the SDK, so a
+  rename of a base-map layer id does not affect your integration.
+- `park_rail` and `parking_place` are `SBBPoiCategoryType` values and are not tied to a
+  specific style layer id; they keep working as long as you pass them via
+  `SBBMapPoi.subcategories`.
+- If you previously accessed a raw style layer id (e.g. `journey-pois`) directly instead
+  of through `SBBMapView` / `SBBMapPoi`, switch to the public API above. The SDK keeps the
+  layer wiring in sync with the published styles.
+
+## Theme handling
+
+`SBBMapView` now observes `SBBMapThemeManager.isDarkMode` reactively. Toggling the theme
+(`SBBMapThemeManager.toggleDarkMode()`) updates the style of **all displayed maps on the
+fly**, including small/embedded maps that stay in the composition. Previously the style was
+resolved only when a map first entered composition, so an already-visible map kept its
+original theme until it was recomposed.
+
+No API change: continue to drive the theme through `SBBMapThemeManager`.
+
 ## Other changes
 
 - `SBBMapView` now throws a descriptive error instead of a bare `IllegalStateException`.
