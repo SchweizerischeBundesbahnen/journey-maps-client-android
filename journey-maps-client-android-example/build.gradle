@@ -53,11 +53,12 @@ android {
     }
     signingConfigs {
         release {
-            // read from gradle.properties
-            storeFile file(uploadKeystoreFile)
-            storePassword uploadKeystorePassword
-            keyAlias uploadKeyAlias
-            keyPassword uploadKeyPassword
+            if (uploadKeystoreFile) {
+                storeFile file(uploadKeystoreFile)
+                storePassword uploadKeystorePassword
+                keyAlias uploadKeyAlias
+                keyPassword uploadKeyPassword
+            }
         }
     }
     buildTypes {
