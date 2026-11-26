@@ -15,8 +15,12 @@ if (localPropertiesFile.exists()) {
     }
 }
 
+def playServiceAccountJson = System.getenv("PLAY_STORE_SERVICE_ACCOUNT_JSON") ?: localProperties['PLAY_STORE_SERVICE_ACCOUNT_JSON']
 play {
-//    serviceAccountCredentials.set(file(PLAY_STORE_SERVICE_ACCOUNT_JSON))
+    // Path to the Google Play service account JSON (CI writes it from a secret).
+    if (playServiceAccountJson) {
+        serviceAccountCredentials.set(file(playServiceAccountJson))
+    }
     track = "alpha"
     defaultToAppBundles.set(true)
     artifactDir.set(layout.buildDirectory.dir("outputs/bundle/release").get().asFile)
@@ -104,15 +108,4 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:${versions.androidXTestJunit}"
     androidTestImplementation "androidx.test.espresso:espresso-core:${versions.espressoCore}"
     debugImplementation 'androidx.compose.ui:ui-tooling'
-}
-
-afterEvaluate {
-//    publishing.publications {
-//        release(MavenPublication) {
-//            artifact layout.buildDirectory.file("outputs/bundle/release/${project.name}-release.aab")
-//            groupId = 'ch.sbb.rokas.android'
-//            artifactId = 'ch.sbb.maps.android.example'
-//            version = PUBLISH_VERSION
-//        }
-//    }
 }

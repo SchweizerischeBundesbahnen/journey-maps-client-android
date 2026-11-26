@@ -1,0 +1,118 @@
+name: Map SDK Build and Release
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true && (contains(github.event.pull_request.labels.*.name, 'sdkRelease:patch') || contains(github.event.pull_request.labels.*.name, 'sdkRelease:minor') || contains(github.event.pull_request.labels.*.name, 'sdkRelease:major'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Detect bump type
+        id: bump
+        run: |
+          LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+          if echo "$LABELS" | grep -q '"sdkRelease:major"'; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif echo "$LABELS" | grep -q '"sdkRelease:minor"'; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read and bump version
+        id: version
+        run: |
+          CURRENT=$(grep '^PUBLISH_VERSION=' gradle.properties | cut -d'=' -f2)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          BUMP_TYPE="${{ steps.bump.outputs.type }}"
+          if [ "$BUMP_TYPE" = "major" ]; then
+            NEW_VERSION="$((MAJOR + 1)).0.0"
+          elif [ "$BUMP_TYPE" = "minor" ]; then
+            NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+          else
+            NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Bumping from ${CURRENT} to ${NEW_VERSION} (${BUMP_TYPE})"
+
+      - name: Update gradle.properties
+        run: |
+          sed -i "s/^PUBLISH_VERSION=.*/PUBLISH_VERSION=${{ steps.version.outputs.version }}/" gradle.properties
+
+      # Stage the signed-later artifacts into build/staging-deploy (local dir).
+      # No credentials needed here: this only writes files locally.
+      - name: Stage SDK artifacts
+        run: ./gradlew :journey-maps-client-android:publishReleasePublicationToPreDeployRepository
+
+      # Sign + deploy to Maven Central via the JReleaser CLI (its own JVM).
+      # Run outside Gradle to avoid the Bouncy Castle clash with Gradle's
+      # bundled copy that breaks PGP signing of the Android 'aar'.
+      # Config: jreleaser.yml at the repo root.
+      - name: Sign and deploy to Maven Central
+        uses: jreleaser/release-action@v2
+        with:
+          version: 1.27.0
+          arguments: deploy
+        env:
+          JRELEASER_PROJECT_VERSION: ${{ steps.version.outputs.version }}
+          JRELEASER_GPG_SECRET_KEY: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          JRELEASER_GPG_PASSPHRASE: ${{ secrets.SIGNING_PASSWORD }}
+          JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          JRELEASER_MAVENCENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload JReleaser logs if the deploy step fails, for debugging.
+      - name: Upload JReleaser trace log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jreleaser-trace-log
+          path: out/jreleaser/trace.log
+
+      - name: Create and push git tag
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Commit version bump to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradle.properties
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git push origin main
+
+      - name: Remove release label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABEL="${{ steps.bump.outputs.type }}"
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "sdkRelease:${LABEL}" \
+            --repo ${{ github.repository }}
