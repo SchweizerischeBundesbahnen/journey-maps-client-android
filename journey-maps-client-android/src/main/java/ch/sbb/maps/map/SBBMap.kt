@@ -14,6 +14,7 @@ import ch.sbb.maps.annotation.SBBLine
 import ch.sbb.maps.annotation.SBBMapAnnotationsController
 import ch.sbb.maps.floor.SBBMapFloorSwitchController
 import ch.sbb.maps.poi.SBBMapPoiController
+import ch.sbb.maps.poi.SBBMapPoiLayerIds
 import ch.sbb.maps.theme.SBBMapThemeManager
 import ch.sbb.maps.userlocation.SBBMapUserLocation
 import ch.sbb.maps.util.SBBMapLogger
@@ -195,6 +196,18 @@ internal class SBBMap(
         )
     }
 
+    internal suspend fun updateDarkMode(newIsDarkMode: Boolean) {
+        if (isDarkMode.value == newIsDarkMode) return
+        isDarkMode.value = newIsDarkMode
+        updateMapStyle(
+            when {
+                isSatelliteView.value == true -> SBBMapStyle.SATELLITE
+                newIsDarkMode -> SBBMapStyle.DARK
+                else -> SBBMapStyle.BRIGHT
+            },
+        )
+    }
+
     /**
      * @return if the map location has successfully been enabled
      */
@@ -212,7 +225,11 @@ internal class SBBMap(
 
     internal fun updateSelectedFloor(floor: Int) {
         selectedFloor.postValue(floor)
-        floorSwitch?.getAvailableFloorFilters(floor)
+        floorSwitch?.getAvailableFloorFilters(
+            selectedFloor = floor,
+            poiEnabled = poiEnabled,
+            poiLayerIds = SBBMapPoiLayerIds.ALL.toSet(),
+        )
         pathController?.updateFloorVisibility(floor)
     }
 

@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -72,10 +72,7 @@ public fun SBBMapView(
     annotations: SBBMapAnnotations = SBBMapAnnotations(),
     callbacks: SBBMapCallbacks = SBBMapCallbacks(),
 ) {
-    val isDarkTheme =
-        remember {
-            mutableStateOf(SBBMapThemeManager.isDarkMode.value)
-        }
+    val isDarkTheme = SBBMapThemeManager.isDarkMode.collectAsState()
     val context = LocalContext.current
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
@@ -127,6 +124,9 @@ public fun SBBMapView(
     val newPathCircles by annotations.circles.observeAsState(emptyList())
     val newPathFloorConnectors by annotations.floorConnectors.observeAsState(emptyList())
 
+    LaunchedEffect(isDarkTheme.value) {
+        sbbMap.updateDarkMode(isDarkTheme.value)
+    }
     LaunchedEffect(newPoiSubcategories) {
         if (poi.enabled) sbbMap.updatePoiSubcategories(newPoiSubcategories ?: emptyList())
     }
