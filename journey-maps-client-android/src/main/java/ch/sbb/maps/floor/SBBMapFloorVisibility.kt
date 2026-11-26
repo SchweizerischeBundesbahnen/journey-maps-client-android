@@ -26,11 +26,14 @@ internal class SBBMapFloorVisibility {
         style: Style,
         layers: List<JsonObject>,
         indoorEnabled: Boolean,
+        poiEnabled: Boolean,
+        poiLayerIds: Set<String>,
     ) {
         layers.forEach { layer ->
             val id = SBBMapFloorStyleLayers.id(layer) ?: return@forEach
             val visibility =
                 when {
+                    id in poiLayerIds && !poiEnabled -> Property.NONE
                     SBBMapFloorStyleLayers.is2d(layer) -> if (indoorEnabled) Property.NONE else Property.VISIBLE
                     SBBMapFloorStyleLayers.isLevel(layer) -> if (indoorEnabled) Property.VISIBLE else Property.NONE
                     else -> return@forEach

@@ -46,8 +46,17 @@ internal class SBBMapPoiController(
         }
     }
 
-    internal fun updateSubcategories(newSelectedCategories: List<String>) =
-        setPoiResourcesVisible(true, newSelectedCategories)
+    internal fun updateSubcategories(newSelectedCategories: List<String>) {
+        map.getStyle { style ->
+            SBBMapPoiLayerIds.CATEGORY_FILTERABLE.forEach { layerId ->
+                style.getLayerAs<SymbolLayer>(layerId)?.let { layer ->
+                    val oldFilter = layer.filter?.toArray()?.toList() ?: emptyList()
+                    val newFilter = SBBMapPoiCategoryFilter.apply(oldFilter, newSelectedCategories)
+                    layer.setFilter(Expression.raw(gson.toJson(newFilter)))
+                }
+            }
+        }
+    }
 
     internal fun setupPoiClickEvent(point: LatLng?): Feature? = selection.select(point)
 

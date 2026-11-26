@@ -6,7 +6,6 @@ package ch.sbb.maps.floor
 import androidx.lifecycle.MutableLiveData
 import ch.sbb.maps.floor.SBBMapFloorStyleIds.FLOOR_LIST_PROPERTY
 import ch.sbb.maps.floor.SBBMapFloorStyleIds.SERVICE_POINTS_SOURCE
-import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
@@ -26,15 +25,17 @@ internal class SBBMapFloorSwitchController(
     internal val floors: MutableLiveData<List<Int>> = MutableLiveData(emptyList())
 
     private val visibility = SBBMapFloorVisibility()
-    private val originalFilters = mutableMapOf<String, JsonArray>()
     private var cachedStyle: Style? = null
 
-    internal fun getAvailableFloorFilters(selectedFloor: Int) {
-        floors.value = refreshFloors().value
+    internal fun getAvailableFloorFilters(
+        selectedFloor: Int,
+        poiEnabled: Boolean,
+        poiLayerIds: Set<String>,
+    ) {
+        refreshFloors()
         map.getStyle { style ->
             if (cachedStyle !== style) {
                 cachedStyle = style
-                originalFilters.clear()
                 visibility.reset()
             }
 
@@ -42,7 +43,7 @@ internal class SBBMapFloorSwitchController(
             applyFloorFilters(style, layers, selectedFloor)
 
             val indoorEnabled = floors.value?.isNotEmpty() == true || selectedFloor != 0
-            visibility.applyLevelAnd2d(style, layers, indoorEnabled)
+            visibility.applyLevelAnd2d(style, layers, indoorEnabled, poiEnabled, poiLayerIds)
             visibility.applyBackgroundMasks(style, indoorEnabled, selectedFloor)
         }
     }
@@ -54,16 +55,13 @@ internal class SBBMapFloorSwitchController(
     ) {
         SBBMapFloorStyleLayers.filterableFloorIds(layers).forEach { layerId ->
             val layer = style.getLayer(layerId) ?: return@forEach
-            val original =
-                originalFilters.getOrPut(layerId) {
-                    val filter = layer.floorFilter ?: return@forEach
-                    SBBMapFloorFilter.parse(filter) ?: return@forEach
-                }
-            layer.floorFilter = Expression.raw(SBBMapFloorFilter.withFloor(original, selectedFloor).toString())
+            val filter = layer.floorFilter ?: return@forEach
+            val parsed = SBBMapFloorFilter.parse(filter) ?: return@forEach
+            layer.floorFilter = Expression.raw(SBBMapFloorFilter.withFloor(parsed, selectedFloor).toString())
         }
     }
 
-    private fun refreshFloors(): MutableLiveData<List<Int>> {
+    private fun refreshFloors() {
         val source = map.style?.getSourceAs<GeoJsonSource>(SERVICE_POINTS_SOURCE)
         val newFloors =
             source
@@ -77,7 +75,6 @@ internal class SBBMapFloorSwitchController(
                         ?.mapNotNull { it.toIntOrNull() }
                         ?: emptyList()
                 }?.distinct() ?: emptyList()
-        floors.postValue(newFloors)
-        return floors
+        floors.value = newFloors
     }
 }
