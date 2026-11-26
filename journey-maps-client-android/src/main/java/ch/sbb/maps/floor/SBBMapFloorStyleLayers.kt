@@ -41,8 +41,8 @@ internal object SBBMapFloorStyleLayers {
             val type = layer.get("type")?.takeIf { it.isJsonPrimitive }?.asString
             if (type !in FILTERABLE_LAYER_TYPES) return@mapNotNull null
 
-            val isLevel = role(layer) == FLOOR_METADATA_VALUE_LEVEL || id.endsWith(ROKAS_FLOOR_ID_SUFFIX)
-            val matches = isLevel || FLOOR_LAYER_ID_PREFIXES.any { id.startsWith(it) }
+            val isLevelLayer = role(layer) == FLOOR_METADATA_VALUE_LEVEL || id.endsWith(ROKAS_FLOOR_ID_SUFFIX)
+            val matches = isLevelLayer || FLOOR_LAYER_ID_PREFIXES.any { id.startsWith(it) }
             if (matches) id else null
         }
 
