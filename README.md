@@ -11,7 +11,6 @@ This android SDK allows you to easily incorporate SBB maps into your Android app
 
 ## Supported platforms
 
-![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 
 ## Precondition
 
@@ -41,7 +40,7 @@ dependencies {
 }
 ```
 
-### Accessing ROKAS styles & datasources
+### Accessing SBB styles & datasources
 
 You need to get an **API key** to access the Map Tile Server and the style provided by ROKAS.
 To do so, register your application on [SBB API Platform](https://developer.sbb.ch/apis/journey-maps-tiles/information)
