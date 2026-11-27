@@ -107,7 +107,7 @@ publishing {
             }
 
             pom {
-                name = 'SBB Journey Maps Client Android'
+                name = 'SBB Journey Maps SDK'
                 description = 'Android SDK to easily incorporate SBB Journey Maps into Android applications.'
                 url = 'https://github.com/SchweizerischeBundesbahnen/journey-maps-client-android'
                 inceptionYear = '2024'
@@ -120,9 +120,9 @@ publishing {
                 }
                 developers {
                     developer {
-                        id = 'Lee-Yoonjoo'
-                        name = 'Yoonjoo Lee'
-                        email = 'yoon_joo.lee@sbb.ch'
+                        id = 'sbbDevelopment'
+                        name = 'SBB Development'
+                        email = 'development@sbb.ch'
                         organization = 'Schweizerische Bundesbahnen AG (Swiss Federal Railways)'
                     }
                 }
