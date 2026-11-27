@@ -26,6 +26,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Run one release at a time so parallel runs don't clash on the same version.
+    concurrency:
+      group: map-sdk-release-main
+      cancel-in-progress: false
 
     steps:
       - name: Generate GitHub App token
@@ -83,13 +87,15 @@ jobs:
           JRELEASER_GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Upload JReleaser logs on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: jreleaser-logs
           path: out/jreleaser/
-          retention-days: 3   
-      # Only runs if the upload above succeeded: tag the release and commit
-      # the bumped version back to main so the next release starts from it.
+          retention-days: 3
+
+      # The upload already happened above. Only if it succeeded, record the
+      # release: tag it and commit the new version to main (base for next).
       - name: Tag and commit the released version
         run: |
           git config user.name "github-actions[bot]"
