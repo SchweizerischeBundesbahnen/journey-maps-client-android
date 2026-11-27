@@ -1,17 +1,21 @@
 name: Map SDK Build and Release
 
 # Manual release. Normal merges to main do NOT release anything.
-# To release: Actions -> this workflow -> "Run workflow" -> type the version.
-# It sets that version, builds + signs, and UPLOADS to the Maven Central
+# To release: Actions -> this workflow -> "Run workflow" -> pick the bump.
+# It bumps the version, builds + signs, and UPLOADS to the Maven Central
 # Portal (stage: UPLOAD in jreleaser.yml) where it stays PENDING. Publishing
 # is done manually in the Central Portal (central.sonatype.com).
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g. 2.0.0)"
+      bump:
+        description: "Version bump (compared to the last release)"
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -45,17 +49,18 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Validate and set version
+      - name: Compute new version
         id: version
         run: |
-          VERSION="${{ inputs.version }}"
-          # must look like X.Y.Z (optionally -suffix, e.g. 2.0.0 or 2.0.0-RC1)
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
-            echo "::error::Invalid version '$VERSION' (expected like 2.0.0)"
-            exit 1
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Releasing version ${VERSION}"
+          CURRENT=$(grep '^PUBLISH_VERSION=' gradle.properties | cut -d'=' -f2)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "${{ inputs.bump }}" in
+            major) NEW="$((MAJOR + 1)).0.0" ;;
+            minor) NEW="${MAJOR}.$((MINOR + 1)).0" ;;
+            patch) NEW="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+          esac
+          echo "version=${NEW}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${CURRENT} -> ${NEW} (${{ inputs.bump }})"
 
       - name: Update gradle.properties
         run: sed -i "s/^PUBLISH_VERSION=.*/PUBLISH_VERSION=${{ steps.version.outputs.version }}/" gradle.properties
@@ -79,7 +84,6 @@ jobs:
           JRELEASER_GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Upload JReleaser logs on failure
-        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: jreleaser-logs
