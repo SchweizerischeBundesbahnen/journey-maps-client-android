@@ -34,6 +34,7 @@ android {
     publishing {
         singleVariant("release") {
             withSourcesJar()
+            withJavadocJar()
         }
     }
 }
@@ -80,4 +81,57 @@ dependencies {
     androidTestImplementation "androidx.test.espresso:espresso-core:${versions.espressoCore}"
     androidTestImplementation platform("androidx.compose:compose-bom:${versions.composeBom}")
     debugImplementation 'androidx.compose.ui:ui-tooling'
+}
+
+publishing {
+    repositories {
+        maven {
+            name = 'PreDeploy'
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
+    }
+    publications {
+        release(MavenPublication) {
+            groupId = 'ch.sbb.maps'
+            artifactId = 'android-sdk'
+            version = PUBLISH_VERSION
+
+            afterEvaluate {
+                from components.release
+            }
+
+            versionMapping {
+                allVariants {
+                    fromResolutionResult()
+                }
+            }
+
+            pom {
+                name = 'SBB Journey Maps SDK'
+                description = 'Android SDK to easily incorporate SBB Journey Maps into Android applications.'
+                url = 'https://github.com/SchweizerischeBundesbahnen/journey-maps-client-android'
+                inceptionYear = '2024'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://spdx.org/licenses/MIT.html'
+                        distribution = 'repo'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'sbbDevelopment'
+                        name = 'SBB Development'
+                        email = 'development@sbb.ch'
+                        organization = 'Schweizerische Bundesbahnen AG (Swiss Federal Railways)'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/SchweizerischeBundesbahnen/journey-maps-client-android.git'
+                    developerConnection = 'scm:git:ssh://git@github.com/SchweizerischeBundesbahnen/journey-maps-client-android.git'
+                    url = 'https://github.com/SchweizerischeBundesbahnen/journey-maps-client-android'
+                }
+            }
+        }
+    }
 }

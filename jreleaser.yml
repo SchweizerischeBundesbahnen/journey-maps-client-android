@@ -1,0 +1,43 @@
+# Signs the staged artifacts and uploads them to Maven Central.
+# Run by the JReleaser CLI (not the Gradle plugin) to avoid a Bouncy Castle clash.
+# Credentials come from JRELEASER_* env vars set in the workflow.
+
+project:
+  name: journey-maps-client-android
+  description: Journey Maps Client for Android
+  longDescription: Android SDK to easily incorporate SBB Journey Maps into Android applications.
+  copyright: Schweizerische Bundesbahnen AG (Swiss Federal Railways)
+  license: MIT
+  links:
+    homepage: https://github.com/SchweizerischeBundesbahnen/journey-maps-client-android
+  languages:
+    java:
+      groupId: ch.sbb.maps
+      version: 17
+
+# The workflow creates the git tag, so JReleaser's GitHub release is off.
+release:
+  github:
+    enabled: false
+    skipRelease: true
+    skipTag: true
+
+signing:
+  active: ALWAYS
+  pgp:
+    armored: true
+    verify: false
+
+deploy:
+  maven:
+    mavenCentral:
+      sonatype:
+        active: ALWAYS
+        url: https://central.sonatype.com/api/v1/publisher
+        applyMavenCentralRules: true
+        verifyPom: false   # off: PomChecker doesn't support Android 'aar'
+        stage: UPLOAD      
+        # UPLOAD: upload + validate only; publish manually
+        # FULL: auto-publish
+        stagingRepositories:
+          - journey-maps-client-android/build/staging-deploy
