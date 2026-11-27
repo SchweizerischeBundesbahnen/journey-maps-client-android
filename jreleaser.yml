@@ -10,8 +10,6 @@ project:
   license: MIT
   links:
     homepage: https://github.com/SchweizerischeBundesbahnen/journey-maps-client-android
-  authors:
-    - Yoonjoo Lee
   languages:
     java:
       groupId: ch.sbb.maps
@@ -38,6 +36,8 @@ deploy:
         url: https://central.sonatype.com/api/v1/publisher
         applyMavenCentralRules: true
         verifyPom: false   # off: PomChecker doesn't support Android 'aar'
-        stage: UPLOAD      # upload + validate only; publish manually (FULL = auto-publish)
+        stage: UPLOAD      
+        # UPLOAD: upload + validate only; publish manually
+        # FULL: auto-publish
         stagingRepositories:
           - journey-maps-client-android/build/staging-deploy
