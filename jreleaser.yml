@@ -38,5 +38,9 @@ deploy:
         url: https://central.sonatype.com/api/v1/publisher
         applyMavenCentralRules: true
         verifyPom: false   # off: PomChecker doesn't support Android 'aar'
+        # UPLOAD = upload + validate only, never auto-publish. The deployment
+        # stays pending in the Central Portal and must be published (or dropped)
+        # manually. Change to FULL for automatic publishing.
+        stage: UPLOAD
         stagingRepositories:
           - journey-maps-client-android/build/staging-deploy

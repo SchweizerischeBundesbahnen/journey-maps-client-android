@@ -2,7 +2,8 @@ name: SDK Release Test (branch, dry-run)
 
 # TEMPORARY test workflow. Runs on every push to the test branch so we can
 # verify the Maven Central release path from a branch (no PR merge needed).
-# Currently DRY-RUN only: JReleaser signs and bundles but uploads NOTHING.
+# Uploads to the Central Portal in UPLOAD-only mode (stage: UPLOAD) — the
+# deployment validates and stays PENDING; it is never auto-published.
 # Delete this file once the real release workflow is validated.
 on:
   push:
@@ -35,13 +36,14 @@ jobs:
       - name: Stage SDK artifacts
         run: ./gradlew :journey-maps-client-android:publishReleasePublicationToPreDeployRepository
 
-      - name: JReleaser deploy (DRY-RUN — signs/bundles, uploads nothing)
+      # Real upload to the Central Portal, but UPLOAD-only (stage: UPLOAD in
+      # jreleaser.yml) so it validates and stays PENDING — never auto-published.
+      - name: JReleaser deploy (UPLOAD only — validates, not published)
         uses: jreleaser/release-action@v2
         with:
           version: 1.27.0
           arguments: deploy
         env:
-          JRELEASER_DRY_RUN: true
           JRELEASER_PROJECT_VERSION: ${{ steps.v.outputs.version }}
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.SIGNING_PRIVATE_KEY }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.SIGNING_PASSWORD }}
