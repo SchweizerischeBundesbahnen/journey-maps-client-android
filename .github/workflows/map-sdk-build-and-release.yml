@@ -1,10 +1,13 @@
 name: Map SDK Build and Release
 
-# Manual release. Normal merges to main do NOT release anything.
-# To release: Actions -> this workflow -> "Run workflow" -> pick the bump.
-# It bumps the version, builds + signs, and UPLOADS to the Maven Central
-# Portal (stage: UPLOAD in jreleaser.yml) where it stays PENDING. Publishing
-# is done manually in the Central Portal (central.sonatype.com).
+# SDK release to Maven Central (manual).
+#
+# How to release:
+#   1. Actions -> "Map SDK Build and Release" -> Run workflow
+#   2. Pick the bump: patch / minor / major
+#   3. This builds, signs, and uploads the new version to the Central Portal.
+#      It stays PENDING there (not public yet).
+#   4. Go to central.sonatype.com -> Deployments -> click Publish to make it public.
 on:
   workflow_dispatch:
     inputs:
@@ -25,8 +28,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # App-bakery token so the version-bump commit/tag can be pushed to main
-      # (the default GITHUB_TOKEN can't push to a protected branch).
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v3
@@ -68,8 +69,6 @@ jobs:
       - name: Stage SDK artifacts
         run: ./gradlew :journey-maps-client-android:publishReleasePublicationToPreDeployRepository
 
-      # Signs + uploads to the Central Portal. UPLOAD-only (jreleaser.yml),
-      # so the deployment stays PENDING and is NOT auto-published.
       - name: Sign and upload to Maven Central
         uses: jreleaser/release-action@v2
         with:
@@ -88,11 +87,10 @@ jobs:
         with:
           name: jreleaser-logs
           path: out/jreleaser/
-          retention-days: 3
-
+          retention-days: 3   
       # Only runs if the upload above succeeded: tag the release and commit
       # the bumped version back to main so the next release starts from it.
-      - name: Tag and commit version bump
+      - name: Tag and commit the released version
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
